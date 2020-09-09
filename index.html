@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html>
+    <head>
+		<!-- From W3 -->
+        <!-- Basemap -->
+		<title>Basemap</title>
+		<!-- Description -->
+		<meta name="description" content="Leaflet Basemap">
+		<!-- Keyword -->
+		<meta name="keywords" content="HTML, CSS, JavaScript, leaflet, mapbox">
+		<!-- Author -->
+		<meta name="author" content="Kennedy Musembi Kiio">
+		
+		<!-- Template Css -->
+		<link rel="stylesheet" href="css/template.css"/>
+		
+		<!-- Font Awesome -->
+		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
+		
+		<!-- Leaflet Css-->
+		<link rel="stylesheet" href="https://unpkg.com/leaflet@1.6.0/dist/leaflet.css"
+        integrity="sha512-xwE/Az9zrjBIphAcBb3F6JVqxf46+CDLwfLMHloNu6KEQCAWi6HcDUbeOfBIptF7tcCzusKFjFw2yuvEpDL9wQ=="
+        crossorigin=""/>
+		
+		<!-- Better Scale Css-->
+		<link rel="stylesheet" href="plugins/leaflet/plugins/better-scale/L.Control.BetterScale.css" />
+		
+		<!-- Ensure cross platform compatibility obtained from leaflet library-->
+		
+    </head>
+
+    <body>
+		<div id="mymap"></div>
+		<!-- Java Scripts-->
+		
+		<!-- Leaflet js-->
+		<script src="https://unpkg.com/leaflet@1.6.0/dist/leaflet.js"
+        integrity="sha512-gZwIG9x3wUXg2hdXF6+rVkLF/0Vi9U8D2Ntg4Ga5I5BZpVkVxlJWbSQtXPSiUTtC0TjtGOmxa1AJPuV0CPthew=="
+        crossorigin=""></script>
+		<!-- Better Scale Js-->
+		<script src="plugins/leaflet/plugins/better-scale/L.Control.BetterScale.js"></script>
+		<!-- Local Forlage -->
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/localforage/1.5.0/localforage.js"></script>
+		<!-- Leaflet Offline -->
+		<script src="plugins/leaflet/plugins/leaflet-offline/leaflet-offline.js"></script>
+		<!-- Map Js-->
+		<script type="text/javascript">
+			//Offline Tiles
+			var tilesDb = {
+				getItem: function (key) {
+					return localforage.getItem(key);
+				},
+
+				saveTiles: function (tileUrls) {
+					var self = this;
+
+					var promises = [];
+
+					for (var i = 0; i < tileUrls.length; i++) {
+						var tileUrl = tileUrls[i];
+
+						(function (i, tileUrl) {
+							promises[i] = new Promise(function (resolve, reject) {
+								var request = new XMLHttpRequest();
+								request.open('GET', tileUrl.url, true);
+								request.responseType = 'blob';
+								request.onreadystatechange = function () {
+									if (request.readyState === XMLHttpRequest.DONE) {
+										if (request.status === 200) {
+											resolve(self._saveTile(tileUrl.key, request.response));
+										} else {
+											reject({
+												status: request.status,
+												statusText: request.statusText
+											});
+										}
+									}
+								};
+								request.send();
+							});
+						})(i, tileUrl);
+					}
+
+					return Promise.all(promises);
+				},
+
+				clear: function () {
+					return localforage.clear();
+				},
+
+				_saveTile: function (key, value) {
+					return this._removeItem(key).then(function () {
+						return localforage.setItem(key, value);
+					});
+				},
+
+				_removeItem: function (key) {
+					return localforage.removeItem(key);
+				}
+			};
+			
+			var offlineLayer = L.tileLayer.offline('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', tilesDb, {
+				attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+				subdomains: 'abc',
+				maxZoom: 19,
+				crossOrigin: true
+			});
+			var offlineControl = L.control.offline(offlineLayer, tilesDb, {
+				saveButtonHtml: '<i class="fa fa-download" aria-hidden="true"></i>',
+				removeButtonHtml: '<i class="fa fa-trash" aria-hidden="true"></i>',
+				confirmSavingCallback: function (nTilesToSave, continueSaveTiles) {
+					if (window.confirm('Save ' + nTilesToSave + '?')) {
+						continueSaveTiles();
+					}
+				},
+				confirmRemovalCallback: function (continueRemoveTiles) {
+					if (window.confirm('Remove all the tiles?')) {
+						continueRemoveTiles();
+					}
+				},
+				minZoom: 13,
+				maxZoom: 19
+			});
+			
+			offlineLayer.on('offline:below-min-zoom-error', function () {
+				alert('Can not save tiles below minimum zoom level.');
+			});
+
+			offlineLayer.on('offline:save-start', function (data) {
+				console.log('Saving ' + data.nTilesToSave + ' tiles.');
+			});
+
+			offlineLayer.on('offline:save-end', function () {
+				alert('All the tiles were saved.');
+			});
+
+			offlineLayer.on('offline:save-error', function (err) {
+				console.error('Error when saving tiles: ' + err);
+			});
+
+			offlineLayer.on('offline:remove-start', function () {
+				console.log('Removing tiles.');
+			});
+
+			offlineLayer.on('offline:remove-end', function () {
+				alert('All the tiles were removed.');
+			});
+
+			offlineLayer.on('offline:remove-error', function (err) {
+				console.error('Error when removing tiles: ' + err);
+			});
+			
+			//Tutorial Layer - Obtained from leaflet map
+			var tonerBase = L.tileLayer('http://tile.stamen.com/toner/{z}/{x}/{y}.png', {
+					attribution: 'Map tiles by Stamen Design, under CC BY 3.0. Data by OpenStreetMap, under ODbL.',
+					maxZoom: 18,
+					minZoom: 1
+				});
+			//Tutorial Layer - Obtained from assignment
+			var mapBoxBase = L.tileLayer('https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token={accessToken}', {
+				attribution: 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, Imagery © <a href="http://mapbox.com">Mapbox</a>',
+				maxZoom: 18,
+				id: 'mapbox.satellite',
+				accessToken: 'pk.eyJ1Ijoia2VpMTEwIiwiYSI6ImNqcmczdWJzNzFpOXk0NHA0ZDdwaThyZmgifQ.SN2dLbaBpbdlJyE5OCmndQ'
+			});
+			//Jawg matrix
+			var Jawg_Matrix = L.tileLayer('https://{s}.tile.jawg.io/jawg-matrix/{z}/{x}/{y}{r}.png?access-token={accessToken}', {
+				attribution: '<a href="http://jawg.io" title="Tiles Courtesy of Jawg Maps" target="_blank">&copy; <b>Jawg</b>Maps</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+				minZoom: 0,
+				maxZoom: 22,
+				subdomains: 'abcd',
+				accessToken: 'XtidJ8DmagbIe4pQL2VlUdo55zeODRpHFd2jaQjOEGOVDA5jgsXLyx3tAXirPjJd'
+			});
+			//OSM
+			var OpenStreetMap_Mapnik = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+				maxZoom: 22,
+				attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+			});
+			//determin which base to use in accordance to time of day
+			var baseToUse;
+			const hours = new Date().getHours()
+			if (hours > 6 && hours < 19){
+				baseToUse = OpenStreetMap_Mapnik;
+			}else{
+				baseToUse = Jawg_Matrix;
+			}
+			//map
+			var map = L.map('mymap', {
+				center: [0, 37],
+				zoom: 7,
+				layers: [baseToUse] //add to map
+			});
+			var baseMaps = {
+				"Day": OpenStreetMap_Mapnik,
+				"Night" : Jawg_Matrix,
+				"Offline Map": offlineLayer,
+			};
+			
+			//geoloaction
+			map.locate({setView: true, maxZoom: 16});
+			function onLocationFound(e) {
+				var radius = e.accuracy;
+				
+				L.circle(e.latlng, 15, {
+							stroke : true,
+							color : 'blue',
+							opacity : '0.7',
+							fill : true,
+							fillColor : "#A2D9CE",
+							fillOpacity : 0.7,
+						}
+					).addTo(map);
+			}
+			map.on('locationfound', onLocationFound);
+			function onLocationError(e) {
+				alert(e.message);
+			}
+			//Geoloaction
+
+			map.on('locationerror', onLocationError);
+			//controller
+			
+			//Offline Map
+			offlineControl.addTo(map);
+			//From Leaflet Documents
+			L.control.layers(baseMaps).addTo(map);
+			//Better Scale Plugin
+			L.control.betterscale().addTo(map);
+			
+		</script>
+    </body>
+</html>
